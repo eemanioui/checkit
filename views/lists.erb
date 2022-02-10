@@ -1,0 +1,12 @@
+<ul id="lists" >
+  <% @lists.each_with_index do |list, index|%>
+  <li>
+    <a href="lists/<%= index %>">
+      <h2><%= list[:name] %></h2>
+      <p><%= list[:todos].size %></p>
+    </a>
+  </li>
+  <% end %>
+</ul>
+
+<a href="/list/new"> New List </a> 

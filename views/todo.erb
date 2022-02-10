@@ -1,0 +1,14 @@
+<form method="post"  action="/lists/<%= @index %>" >
+  <dl>
+    <dt>
+      <label for="todo_name">Enter a new todo item:</label>
+    </dt>
+    <dd>
+      <input type="text" placeholder="Todo Name" name="todo_name" value="">
+    </dd>
+  </dl>
+  <fieldset class="actions">
+    <input type="submit" value="Save">
+    <a href="/lists">Cancel</a>
+  </fieldset>
+</form>  
