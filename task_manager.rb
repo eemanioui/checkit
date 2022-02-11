@@ -1,5 +1,6 @@
 require 'sinatra'
 require 'sinatra/reloader' if development?
+require 'sinatra/content_for'
 require 'tilt/erubis'
 
 configure do
@@ -41,20 +42,38 @@ post '/lists' do
   end
 end
 
-get "/lists/:id" do |id|
+get '/lists/:id' do |id|
   @index = id.to_i  
-  valid_list = session[:lists][@index]
-  redirect '/' unless valid_list
+  @valid_list = session[:lists][@index]
+  
+  redirect '/' unless @valid_list
 
-  erb :todo
+  erb :list
 end
 
-post "/lists/:id" do |id|
-  todo = params[:todo_name]
-  valid_list = session[:lists][id.to_i]
-  valid_list[:todos] << todo
-  
-  redirect "/lists"
+# Edit existing todo list
+get '/lists/:id/edit' do
+  @index = params[:id].to_i
+  @list = session[:lists][@index]
+
+  erb :edit_list
+end
+
+# update an existing todo list
+post '/lists/:id' do |id|
+  list_name = params[:list_name].strip
+  error_message = invalid?(list_name)
+  @index = id.to_i
+  @list = session[:lists][@index]
+
+  if error_message
+    session[:error] = error_message
+    erb :edit_list
+  else
+    @list[:name] = list_name
+    session[:success] = 'The list has been updated.'
+    redirect "/lists/#{@index}"
+  end
 end
 
 
