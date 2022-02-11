@@ -24,7 +24,7 @@ end
 
 # Render the `new list` form
 get '/list/new' do
-  erb :new_list, layout: :layout
+  erb :new_list
 end
 
 # Create a new list
@@ -42,19 +42,21 @@ post '/lists' do
   end
 end
 
+# View a single todo list
 get '/lists/:id' do |id|
-  @index = id.to_i  
-  @valid_list = session[:lists][@index]
-  
-  redirect '/' unless @valid_list
+  @list_id = id.to_i  
+  @list = session[:lists][@list_id] # retruns a hash if a list exists or nil if there's no corresponding list
+
+
+  redirect '/' unless @list
 
   erb :list
 end
 
 # Edit existing todo list
 get '/lists/:id/edit' do
-  @index = params[:id].to_i
-  @list = session[:lists][@index]
+  @list_id= params[:id].to_i
+  @list = session[:lists][@list_id]
 
   erb :edit_list
 end
@@ -63,8 +65,8 @@ end
 post '/lists/:id' do |id|
   list_name = params[:list_name].strip
   error_message = invalid?(list_name)
-  @index = id.to_i
-  @list = session[:lists][@index]
+  @list_id = id.to_i
+  @list = session[:lists][@list_id]
 
   if error_message
     session[:error] = error_message
@@ -72,16 +74,71 @@ post '/lists/:id' do |id|
   else
     @list[:name] = list_name
     session[:success] = 'The list has been updated.'
-    redirect "/lists/#{@index}"
+    redirect "/lists/#{@list_id}"
   end
 end
 
+# Delete a todo list
+post '/lists/:id/delete' do
+  index = params[:id].to_i
+  session[:lists].delete_at(index)
+  session[:success] = "The list has been deleted."
+
+  redirect "/lists"
+end
+
+# view all todos
+get '/lists/:id/todos' do
+  index = params[:id].to_i
+  @list = session[:lists][index]
+
+  erb :todos
+end
+
+# add a todo task to a list
+post "/lists/:id/todos" do
+  @list_id = params[:id].to_i
+  @list  = session[:lists][@list_id]
+  todo  = params[:todo].strip
+  error = invalid_todo(todo)
+
+  if error
+    session[:error] = error
+    erb :list
+  else
+    @list[:todos] <<  {name: todo, completed: false}
+    session[:success] = 'Todo item has been added.'
+    redirect "/lists/#{@list_id}"
+  end
+end
+
+# Delete a Todo from a list
+post "/lists/:list_id/todos/:todo_id/delete" do |list_id, todo_id|
+  @list_id = list_id.to_i
+  @list = session[:lists][@list_id]
+  todo_id = todo_id.to_i
+
+  @list[:todos].delete_at(todo_id) 
+
+  session[:success] = "Todo item has been deleted."
+
+  redirect "lists/#{@list_id}"
+end
 
 # returns a String error message if the name is invalid. returns nil if the name is valid.
 def invalid?(list_name)
   unless list_name.size.between?(1, 100)
-    return 'List name must be between 1 and 100 characters'
+    return "List name must be between 1 and 100 characters"
   end
 
-  'List name must be unique.' if session[:lists].any? { |list| list[:name] == list_name }
+  "List name must be unique." if session[:lists].any? { |list| list[:name] == list_name }
+end
+
+
+def invalid_todo(name)
+  unless name.size.between?(1, 100)
+    return "Todo name must be between 1 and 100 characters"
+  end
+
+  "Todo name must be unique." if session[:lists].any? { |list| list[:todos].any? {|todo| todo[:name] == name } }
 end
