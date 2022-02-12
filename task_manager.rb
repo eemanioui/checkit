@@ -47,7 +47,6 @@ get '/lists/:id' do |id|
   @list_id = id.to_i  
   @list = session[:lists][@list_id] # retruns a hash if a list exists or nil if there's no corresponding list
 
-
   redirect '/' unless @list
 
   erb :list
@@ -87,14 +86,6 @@ post '/lists/:id/delete' do
   redirect "/lists"
 end
 
-# view all todos
-get '/lists/:id/todos' do
-  index = params[:id].to_i
-  @list = session[:lists][index]
-
-  erb :todos
-end
-
 # add a todo task to a list
 post "/lists/:id/todos" do
   @list_id = params[:id].to_i
@@ -122,8 +113,35 @@ post "/lists/:list_id/todos/:todo_id/delete" do |list_id, todo_id|
 
   session[:success] = "Todo item has been deleted."
 
-  redirect "lists/#{@list_id}"
+  redirect "/lists/#{@list_id}"
+end 
+
+# Update the status of a todo
+post "/lists/:list_id/todos/:todo_id" do |list_id, todo_id|
+  @list_id = list_id.to_i
+  @list = session[:lists][@list_id]
+  todo_id = todo_id.to_i
+  is_completed = params[:completed] == "true" 
+
+  @list[:todos][todo_id][:completed] = is_completed
+
+  session[:success] = "Todo item has been updated."
+
+  redirect "/lists/#{@list_id}"
 end
+
+# Mark all todos as complete for a list
+post "/lists/:list_id/complete_all" do |list_id|
+  @list_id = list_id.to_i
+  @list = session[:lists][@list_id]
+
+  @list[:todos].each {|todo| todo[:completed] = true }
+
+  session[:success] = "All todos have been completed."
+
+  redirect "/lists/#{@list_id}"
+end
+
 
 # returns a String error message if the name is invalid. returns nil if the name is valid.
 def invalid?(list_name)
@@ -133,7 +151,6 @@ def invalid?(list_name)
 
   "List name must be unique." if session[:lists].any? { |list| list[:name] == list_name }
 end
-
 
 def invalid_todo(name)
   unless name.size.between?(1, 100)
