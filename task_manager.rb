@@ -38,8 +38,8 @@ helpers do
     sorted_list.each(&block)
   end
 
-
-  def sorted(list, &block)
+# this method expects an implicit block to be passed as an argument when it is invoked.
+  def sorted(list)
     list.map
         .with_index {|item, index| [item, index] }
         .sort_by {|item, index| yield(item) }
@@ -53,8 +53,11 @@ helpers do
       1. It yields each element of the caller collection to the block, and caches the return value of the block at each iteration temporarily.
       2. sorts all of the block's cached returned values from step 1, which correspond to elements in the calling collection
       3. returns a new sorted collection object(e.i Array), within which elements are sorted based on the sorted return values of th block from step # 2.
-  Note: This only works if the values returned by the block at each initial iteration(step #1) implement a comparison method and are of the same class(side_note: this could possibly be overidden with custom classes/objects)
-  example: suppose at step # 1, you invoke a custom method within the block. if the method returns `nil`,`fale`, `true` or raises an exception for any of the passed in elements, the method will not work.
+  
+# Note: 
+  - This only works if the values returned by the block at each initial iteration(step #1) implement a comparison method and are of the same class
+  - The above could possibly be overidden with custom classes/objects)
+# Example: suppose at step # 1, you invoke a custom method within the block. if the method returns `nil`,`false`, `true` or raises an `exception`` for any of the passed in elements, `Enumrable#sort_by` will not work and an exception will be raised
 =end
 end
 
@@ -79,8 +82,8 @@ end
 
 # Create a new list
 post '/lists' do
-  list_name = params[:list_name].strip
-  error_message = invalid?(list_name)
+  list_name     = params[:list_name].strip
+  error_message = invalid(list_name) { |list| list[:name] == list_name }
 
   if error_message
     session[:error] = error_message
@@ -95,7 +98,7 @@ end
 # View a single todo list
 get '/lists/:id' do |id|
   @list_id = id.to_i  
-  @list = session[:lists][@list_id] # retruns a hash if a list exists or nil if there's no corresponding list
+  @list    = session[:lists][@list_id] # retruns a hash if a list exists or nil if there's no corresponding list
 
   redirect '/' unless @list
 
@@ -103,19 +106,19 @@ get '/lists/:id' do |id|
 end
 
 # Edit existing todo list
-get '/lists/:id/edit' do
-  @list_id= params[:id].to_i
-  @list = session[:lists][@list_id]
+get '/lists/:id/edit' do |id|
+  @list_id = id.to_i
+  @list    = session[:lists][@list_id]
 
   erb :edit_list
 end
 
 # update an existing todo list
 post '/lists/:id' do |id|
-  list_name = params[:list_name].strip
-  error_message = invalid?(list_name)
-  @list_id = id.to_i
-  @list = session[:lists][@list_id]
+  list_name     = params[:list_name].strip
+  error_message = invalid(list_name) { |list| list[:name] == list_name }
+  @list_id      = id.to_i
+  @list         = session[:lists][@list_id]
 
   if error_message
     session[:error] = error_message
@@ -128,8 +131,8 @@ post '/lists/:id' do |id|
 end
 
 # Delete a todo list
-post '/lists/:id/delete' do
-  index = params[:id].to_i
+post '/lists/:id/delete' do |id|
+  index = id.to_i
   session[:lists].delete_at(index)
   session[:success] = "The list has been deleted."
 
@@ -137,17 +140,17 @@ post '/lists/:id/delete' do
 end
 
 # add a todo task to a list
-post "/lists/:id/todos" do
-  @list_id = params[:id].to_i
-  @list  = session[:lists][@list_id]
-  todo  = params[:todo].strip
-  error = invalid_todo(todo)
+post "/lists/:id/todos" do |id|
+  @list_id    = id.to_i
+  @list       = session[:lists][@list_id]
+  todo_name   = params[:todo].strip
+  error_message      = invalid(todo_name) { |list| list[:todos].any? { |todo| todo[:name] == todo_name } }
 
-  if error
-    session[:error] = error
+  if error_message
+    session[:error] = error_message
     erb :list
   else
-    @list[:todos] <<  {name: todo, completed: false}
+    @list[:todos] <<  {name: todo_name, completed: false}
     session[:success] = 'Todo item has been added.'
     redirect "/lists/#{@list_id}"
   end
@@ -192,20 +195,11 @@ post "/lists/:list_id/complete_all" do |list_id|
   redirect "/lists/#{@list_id}"
 end
 
-
-# returns a String error message if the name is invalid. returns nil if the name is valid.
-def invalid?(list_name)
-  unless list_name.size.between?(1, 100)
-    return "List name must be between 1 and 100 characters"
+# returns a String message if the user input is invalid otherwise returns nil if the name is valid.
+def invalid(user_input)
+  unless user_input.size.between?(1, 100)
+    return "Entry name must be between 1 and 100 characters"
   end
 
-  "List name must be unique." if session[:lists].any? { |list| list[:name] == list_name }
-end
-
-def invalid_todo(name)
-  unless name.size.between?(1, 100)
-    return "Todo name must be between 1 and 100 characters"
-  end
-
-  "Todo name must be unique." if session[:lists].any? { |list| list[:todos].any? {|todo| todo[:name] == name } }
+  "Entry name must be unique." if session[:lists].any? { |list| yield list }
 end
