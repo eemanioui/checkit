@@ -8,6 +8,24 @@ configure do
   set :session_secret, 'secret'
 end
 
+helpers do
+  def list_complete?(list)
+     size_of_todos(list) > 0 && size_of_incompleted_todos(list) == 0
+  end
+
+  def list_class(list)
+    "complete" if list_complete?(list)
+  end
+
+  def size_of_todos(list)
+    list[:todos].size
+  end
+
+  def size_of_incompleted_todos(list)
+    list[:todos].reject {|todo| todo[:completed] }.size 
+  end
+end
+
 before do
   session[:lists] ||= []
 end

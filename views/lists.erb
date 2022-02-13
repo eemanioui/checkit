@@ -1,11 +1,13 @@
 <ul id="lists" >
   <% @lists.each_with_index do |list, index| %>
-  <li>
-    <a href="lists/<%= index %>">
-      <h2><%= list[:name] %></h2>
-      <p><%= list[:todos].size %></p>
-    </a>
-  </li>
+    <li class="<%= list_class(list) %>" >
+      <a href="lists/<%= index %>">
+        <h2><%= list[:name] %></h2>
+          <p>
+            <%= size_of_incompleted_todos(list) %> / <%= size_of_todos(list) %>
+          </p>
+      </a>
+    </li>
   <% end %>
 </ul>
 
