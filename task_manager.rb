@@ -46,10 +46,10 @@ helpers do
   end
 
 =begin
-# Important Notes: Line 32 & Line 37
-  Ruby doesn't provide any built-in mechanism for comparing boolean values(`true` and `false`). 
-  I took advantage of the way `Enumerable#sort_by` works in order to sort boolean values based on integer values which do implement comparison(<=>) in their class.
-  `Enumerable#sort_by` works in 3 steps:
+# Important Notes regarding Line 32 & Line 37
+  - Ruby doesn't provide any built-in mechanism for comparing boolean values(`true` and `false`). 
+  - I took advantage of the way `Enumerable#sort_by` works in order to sort boolean values based on integer values which do implement comparison(<=>) in their class.
+  - `Enumerable#sort_by` works in 3 steps:
       1. It yields each element of the caller collection to the block, and caches the return value of the block at each iteration temporarily.
       2. sorts all of the block's cached returned values from step 1, which correspond to elements in the calling collection
       3. returns a new sorted collection object(e.i Array), within which elements are sorted based on the sorted return values of th block from step # 2.
@@ -57,7 +57,8 @@ helpers do
 # Note: 
   - This only works if the values returned by the block at each initial iteration(step #1) implement a comparison method and are of the same class
   - The above could possibly be overidden with custom classes/objects)
-# Example: suppose at step # 1, you invoke a custom method within the block. if the method returns `nil`,`false`, `true` or raises an `exception`` for any of the passed in elements, `Enumrable#sort_by` will not work and an exception will be raised
+# Example: 
+  - suppose at step # 1, you invoke a custom method within the block. if the method returns `nil`,`false`, `true` or raises an `exception`` for any of the passed in elements, `Enumrable#sort_by` will not work and an exception will be raised
 =end
 end
 
@@ -134,6 +135,7 @@ end
 post '/lists/:id/delete' do |id|
   index = id.to_i
   session[:lists].delete_at(index)
+  
   session[:success] = "The list has been deleted."
 
   redirect "/lists"
@@ -141,10 +143,10 @@ end
 
 # add a todo task to a list
 post "/lists/:id/todos" do |id|
-  @list_id    = id.to_i
-  @list       = session[:lists][@list_id]
-  todo_name   = params[:todo].strip
-  error_message      = invalid(todo_name) { |list| list[:todos].any? { |todo| todo[:name] == todo_name } }
+  @list_id      = id.to_i
+  @list         = session[:lists][@list_id]
+  todo_name     = params[:todo].strip
+  error_message = invalid(todo_name) { |list| list[:todos].any? { |todo| todo[:name] == todo_name } }
 
   if error_message
     session[:error] = error_message
@@ -159,8 +161,8 @@ end
 # Delete a Todo from a list
 post "/lists/:list_id/todos/:todo_id/delete" do |list_id, todo_id|
   @list_id = list_id.to_i
-  @list = session[:lists][@list_id]
-  todo_id = todo_id.to_i
+  @list    = session[:lists][@list_id]
+  todo_id  = todo_id.to_i
 
   @list[:todos].delete_at(todo_id) 
 
@@ -171,9 +173,9 @@ end
 
 # Update the status of a todo
 post "/lists/:list_id/todos/:todo_id" do |list_id, todo_id|
-  @list_id = list_id.to_i
-  @list = session[:lists][@list_id]
-  todo_id = todo_id.to_i
+  @list_id     = list_id.to_i
+  @list        = session[:lists][@list_id]
+  todo_id      = todo_id.to_i
   is_completed = params[:completed] == "true" 
 
   @list[:todos][todo_id][:completed] = is_completed
@@ -186,7 +188,7 @@ end
 # Mark all todos as complete for a list
 post "/lists/:list_id/complete_all" do |list_id|
   @list_id = list_id.to_i
-  @list = session[:lists][@list_id]
+  @list    = session[:lists][@list_id]
 
   @list[:todos].each {|todo| todo[:completed] = true }
 
