@@ -145,11 +145,7 @@ post "/lists/:list_id/complete_all" do |list_id|
 end
 
 not_found do
-<<<<<<< HEAD
-  redirect "/lists"
-=======
   redirect "/"
->>>>>>> 1bd0049 (added a NOT found route and reordered part of the code for better readability)
 end
 
 # returns a String message if the user input is invalid otherwise returns nil if the name is valid.
