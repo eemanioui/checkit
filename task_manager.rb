@@ -5,7 +5,7 @@ require 'tilt/erubis'
 
 configure do
   enable :sessions
-  set :session_secret, 'secret'
+  set :session_secret, 'secret' # This is used by Sinatra to encrypt session information and to enable state to persist between program restarts. 
 end
 
 # This will execute before any pattern is matched with a route.
@@ -178,24 +178,24 @@ helpers do
   # it then yields each sorted hash with its original index to the explicit block
   # this feature is intended exculsievly for the `lists` view template.
    def sort_lists(lists, &block)
-    sorted_list = sorted(lists) {|list| list_complete?(list) ? 1 : 0 }
+    sorted_list = sort(lists) {|list| list_complete?(list) ? 1 : 0 }
     sorted_list.each(&block)
   end
 
   def sort_todos(list, &block)
-    sorted_list = sorted(list) { |todo| todo[:completed] ? 1 : 0 }
+    sorted_list = sort(list) { |todo| todo[:completed] ? 1 : 0 }
     sorted_list.each(&block)
   end
 
 # this method expects an implicit block to be passed as an argument when it is invoked.
-  def sorted(list)
+  def sort(list)
     list.map
         .with_index {|item, index| [item, index] }
         .sort_by {|item, index| yield(item) }
   end
 
 =begin
-# Important Notes regarding Line 176 & Line 181
+# Important Notes regarding Line 181 & Line 186
   - Ruby doesn't provide any built-in mechanism for comparing boolean values(`true` and `false`). 
   - I took advantage of the way `Enumerable#sort_by` works in order to sort boolean values based on integer values which do implement comparison(<=>) in their class.
   - `Enumerable#sort_by` works in 3 steps:
