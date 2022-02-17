@@ -5,7 +5,8 @@ require 'tilt/erubis'
 
 configure do
   enable :sessions
-  set :session_secret, 'secret' # This is used by Sinatra to encrypt session information and to enable state to persist between program restarts. 
+  set :session_secret, 'secret'  # This is used by Sinatra to encrypt session information and to enable state to persist between program restarts.
+  set :erb, :escape_html => true # escape potentially unsafe user input
 end
 
 # This will execute before any pattern is matched with a route.
@@ -46,17 +47,15 @@ end
 # View a single todo list
 get '/lists/:id' do |id|
   @list_id = id.to_i  
-  @list    = session[:lists][@list_id] # retruns a hash if a list exists or nil if there's no corresponding list
-
-  redirect '/' unless @list
+  @list    = load_list(@list_id) # retruns a hash if a list exists otherwise redirects
 
   erb :list
 end
 
-# Edit existing todo list
+# Edit an existing todo list
 get '/lists/:id/edit' do |id|
   @list_id = id.to_i
-  @list    = session[:lists][@list_id]
+  @list    = load_list(@list_id)
 
   erb :edit_list
 end
@@ -64,9 +63,9 @@ end
 # update an existing todo list
 post '/lists/:id' do |id|
   list_name     = params[:list_name].strip
-  error_message = invalid(list_name) { |list| list[:name] == list_name }
   @list_id      = id.to_i
-  @list         = session[:lists][@list_id]
+  @list         = load_list(@list_id)
+  error_message = invalid(list_name) { |list| list[:name] == list_name }
 
   if error_message
     session[:error] = error_message
@@ -88,10 +87,10 @@ post '/lists/:id/delete' do |id|
   redirect "/lists"
 end
 
-# add a todo task to a list
+# add a new todo task to a list
 post "/lists/:id/todos" do |id|
   @list_id      = id.to_i
-  @list         = session[:lists][@list_id]
+  @list         = load_list(@list_id)
   todo_name     = params[:todo].strip
   error_message = invalid(todo_name) { |list| list[:todos].any? { |todo| todo[:name] == todo_name } }
 
@@ -108,7 +107,7 @@ end
 # Delete a Todo from a list
 post "/lists/:list_id/todos/:todo_id/delete" do |list_id, todo_id|
   @list_id = list_id.to_i
-  @list    = session[:lists][@list_id]
+  @list    = load_list(@list_id)
   todo_id  = todo_id.to_i
 
   @list[:todos].delete_at(todo_id) 
@@ -121,7 +120,7 @@ end
 # Update the status of a todo
 post "/lists/:list_id/todos/:todo_id" do |list_id, todo_id|
   @list_id     = list_id.to_i
-  @list        = session[:lists][@list_id]
+  @list        = load_list(@list_id)
   todo_id      = todo_id.to_i
   is_completed = params[:completed] == "true" 
 
@@ -135,7 +134,7 @@ end
 # Mark all todos as complete for a list
 post "/lists/:list_id/complete_all" do |list_id|
   @list_id = list_id.to_i
-  @list    = session[:lists][@list_id]
+  @list    = load_list(@list_id)
 
   @list[:todos].each {|todo| todo[:completed] = true }
 
@@ -146,6 +145,16 @@ end
 
 not_found do
   redirect "/"
+end
+
+
+# returns a list if it exists, otherwise redirects to "/lists" and displays flash error message
+def load_list(index)
+  list = session[:lists][index]
+  return list if list
+
+  session[:error] = "The specified list was not found"
+  redirect '/lists' 
 end
 
 # returns a String message if the user input is invalid otherwise returns nil if the name is valid.
