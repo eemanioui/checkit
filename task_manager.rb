@@ -38,7 +38,8 @@ post '/lists' do
     session[:error] = error_message
     erb :new_list
   else
-    session[:lists] << { name: list_name, todos: [] }
+    id = next_element_id(session[:lists])
+    session[:lists] << { id: id, name: list_name, todos: [] }
     session[:success] = 'The list has been created.'
     redirect '/lists'
   end
@@ -73,19 +74,23 @@ post '/lists/:id' do |id|
   else
     @list[:name] = list_name
     session[:success] = 'The list has been updated.'
-    redirect "/lists/#{@list_id}"
+    redirect "/lists/#{@list[:id]}"
   end
 end
 
 # Delete a todo list
 post '/lists/:id/delete' do |id|
-  index = id.to_i
-  session[:lists].delete_at(index)
-  
+  list_id = id.to_i
+  session[:lists].reject! { |list| list[:id] == list_id }
   session[:success] = "The list has been deleted."
-
-  redirect "/lists"
+  
+  if env["HTTP_X_REQUESTED_WITH"] == "XMLHttpRequest"
+    "/lists"
+  else
+    redirect "/lists"
+  end
 end
+
 
 # add a new todo task to a list
 post "/lists/:id/todos" do |id|
@@ -98,7 +103,9 @@ post "/lists/:id/todos" do |id|
     session[:error] = error_message
     erb :list
   else
-    @list[:todos] <<  {name: todo_name, completed: false}
+    id = next_element_id(@list[:todos])
+    @list[:todos] <<  {id: id, name: todo_name, completed: false}
+    
     session[:success] = 'Todo item has been added.'
     redirect "/lists/#{@list_id}"
   end
@@ -110,11 +117,14 @@ post "/lists/:list_id/todos/:todo_id/delete" do |list_id, todo_id|
   @list    = load_list(@list_id)
   todo_id  = todo_id.to_i
 
-  @list[:todos].delete_at(todo_id) 
+  @list[:todos].reject! { |todo| todo[:id] == todo_id }
 
-  session[:success] = "Todo item has been deleted."
-
-  redirect "/lists/#{@list_id}"
+  if env["HTTP_X_REQUESTED_WITH"] == "XMLHttpRequest"
+    status 204
+  else
+    session[:success] = "Todo item has been deleted."
+    redirect "/lists/#{@list_id}"
+  end
 end 
 
 # Update the status of a todo
@@ -122,12 +132,12 @@ post "/lists/:list_id/todos/:todo_id" do |list_id, todo_id|
   @list_id     = list_id.to_i
   @list        = load_list(@list_id)
   todo_id      = todo_id.to_i
-  is_completed = params[:completed] == "true" 
+  is_completed = params[:completed] == "true"
 
-  @list[:todos][todo_id][:completed] = is_completed
+  todo = @list[:todos].find {|todo| todo[:id] == todo_id }
+  todo[:completed] = is_completed
 
   session[:success] = "Todo item has been updated."
-
   redirect "/lists/#{@list_id}"
 end
 
@@ -147,10 +157,9 @@ not_found do
   redirect "/"
 end
 
-
 # returns a list if it exists, otherwise redirects to "/lists" and displays flash error message
-def load_list(index)
-  list = session[:lists][index]
+def load_list(id)
+  list = session[:lists].find { |list| list[:id] == id }
   return list if list
 
   session[:error] = "The specified list was not found"
@@ -165,6 +174,12 @@ def invalid(user_input)
 
   "Entry name must be unique." if session[:lists].any? { |list| yield list }
 end
+
+def next_element_id(elements)
+  max = elements.map {|element| element[:id] }.max || 0
+  max + 1
+end
+
 
 helpers do
   def list_complete?(list)
@@ -198,9 +213,7 @@ helpers do
 
 # this method expects an implicit block to be passed as an argument when it is invoked.
   def sort(list)
-    list.map
-        .with_index {|item, index| [item, index] }
-        .sort_by {|item, index| yield(item) }
+    list.sort_by {|item| yield(item) }
   end
 
 =begin
