@@ -70,7 +70,6 @@ end
 # This will execute before any pattern is matched with a route.
 before do
   @storage = DatabasePersistance.new(logger)
-
 end
 
 get '/' do
@@ -150,7 +149,6 @@ post '/lists/:id/delete' do |id|
     redirect "/lists"
   end
 end
-
 
 # add a new todo task to a list
 post "/lists/:id/todos" do |id|
