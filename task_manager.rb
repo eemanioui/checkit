@@ -231,4 +231,6 @@ def invalid(user_input)
   "Entry name must be unique." if @storage.all_lists.any? { |list| yield list }
 end
 
-
+after do # closing databse connection
+  @storage.disconnect
+end
