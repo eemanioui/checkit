@@ -17,19 +17,11 @@ end
 
 helpers do
   def list_complete?(list)
-     size_of_todos(list) > 0 && size_of_incompleted_todos(list) == 0
+    list[:todos_count] > 0 && list[:remaining_todos_count] == 0
   end
 
   def list_class(list)
     "complete" if list_complete?(list)
-  end
-
-  def size_of_todos(list)
-    list[:todos].size
-  end
-
-  def size_of_incompleted_todos(list)
-    list[:todos].reject {|todo| todo[:completed] }.size 
   end
 
   # takes an array of hashes and reorders them while keeping record of their origianl index.
@@ -40,8 +32,8 @@ helpers do
     sorted_list.each(&block)
   end
 
-  def sort_todos(list, &block)
-    sorted_list = sort(list) { |todo| todo[:completed] ? 1 : 0 }
+  def sort_todos(todos, &block)
+    sorted_list = sort(todos) { |todo| todo[:completed] ? 1 : 0 }
     sorted_list.each(&block)
   end
 
@@ -51,7 +43,7 @@ helpers do
   end
 
 =begin
-# Important Notes regarding Line 205 & Line 210
+# Important Notes regarding Line 31 & Line 36
   - Ruby doesn't provide any built-in mechanism for comparing boolean values(`true` and `false`). 
   - I took advantage of the way `Enumerable#sort_by` works in order to sort boolean values based on integer values which do implement comparison(<=>) in their class.
   - `Enumerable#sort_by` works in 3 steps:
@@ -90,7 +82,7 @@ end
 # Create a new list 
 post '/lists' do
   list_name     = params[:list_name].strip
-  error_message = invalid(list_name) { |list| list[:name] == list_name }
+  error_message = validate(list_name) { @storage.all_lists.any? { |list| list[:name] == list_name } }
 
   if error_message
     session[:error] = error_message
@@ -106,6 +98,7 @@ end
 get '/lists/:id' do |id|
   @list_id = id.to_i  
   @list    = load_list(@list_id) # retruns a hash if a list exists otherwise redirects
+  @todos   = @storage.find_todos_for_list(@list_id)
 
   erb :list
 end
@@ -123,7 +116,7 @@ post '/lists/:id' do |id|
   list_name     = params[:list_name].strip
   @list_id      = id.to_i
   @list         = load_list(@list_id)
-  error_message = invalid(list_name) { |list| list[:name] == list_name }
+  error_message = validate(list_name) { @storage.all_lists.any? { |list| list[:name] == list_name } }
 
   if error_message
     session[:error] = error_message
@@ -131,7 +124,7 @@ post '/lists/:id' do |id|
   else
     @storage.update_list_name(@list_id, list_name)
     session[:success] = 'The list has been updated.'
-    redirect "/lists/#{@list[:id]}"
+    redirect "/lists/#{@list_id}"
   end
 end
 
@@ -152,61 +145,61 @@ end
 
 # add a new todo task to a list
 post "/lists/:id/todos" do |id|
-  @list_id      = id.to_i
-  @list         = load_list(@list_id)
+  list_id       = id.to_i
   todo_name     = params[:todo].strip
-  error_message = invalid(todo_name) { |list| list[:todos].any? { |todo| todo[:name] == todo_name } }
+  @list         = load_list(list_id)
+  @todos        = @storage.find_todos_for_list(list_id)
+  error_message = validate(todo_name) { @todos.any? { |todo| todo[:name] == todo_name } }
 
   if error_message
     session[:error] = error_message
     erb :list
   else
-    @storage.create_new_todo(@list_id, todo_name)
+    @storage.create_new_todo(list_id, todo_name)
     session[:success] = 'Todo item has been added.'
-    redirect "/lists/#{@list_id}"
+    redirect "/lists/#{list_id}"
   end
 end
 
 # Delete a Todo from a list
 post "/lists/:list_id/todos/:todo_id/delete" do |list_id, todo_id|
-  @list_id = list_id.to_i
-  @list    = load_list(@list_id)
+  list_id = list_id.to_i
   todo_id  = todo_id.to_i 
 
-  @storage.delete_todo_from_list(@list_id, todo_id)
+  @storage.delete_todo_from_list(list_id, todo_id)
   session[:success] = "Todo item has been deleted." 
 
 
   if env["HTTP_X_REQUESTED_WITH"] == "XMLHttpRequest"
-    "/lists/#{@list_id}"
+    "/lists/#{list_id}"
   else
-    redirect "/lists/#{@list_id}"
+    redirect "/lists/#{list_id}"
   end
 end 
 
 # Update the status of a todo
 post "/lists/:list_id/todos/:todo_id" do |list_id, todo_id|
-  @list_id     = list_id.to_i
-  @list        = load_list(@list_id)
+  list_id      = list_id.to_i
+  list         = load_list(list_id)
   todo_id      = todo_id.to_i
   is_completed = params[:completed] == "true"
 
-  @storage.update_todo_status(@list_id, todo_id, is_completed)
+  @storage.update_todo_status(list_id, todo_id, is_completed)
 
   session[:success] = "Todo item has been updated."
-  redirect "/lists/#{@list_id}"
+  redirect "/lists/#{list_id}"
 end
 
 # Mark all todos as complete for a list
 post "/lists/:list_id/complete_all" do |list_id|
-  @list_id = list_id.to_i
-  @list    = load_list(@list_id)
+  list_id = list_id.to_i
+  list    = load_list(list_id)
 
-  @storage.mark_all_todos_as_completed(@list_id)
+  @storage.mark_all_todos_as_completed(list_id)
 
   session[:success] = "All todos have been completed."
 
-  redirect "/lists/#{@list_id}"
+  redirect "/lists/#{list_id}"
 end
 
 not_found do
@@ -223,12 +216,14 @@ def load_list(id)
 end
 
 # returns a String message if the user input is invalid otherwise returns nil if the name is valid.
-def invalid(user_input)
+def validate(user_input)
   unless user_input.size.between?(1, 100)
     return "Entry name must be between 1 and 100 characters"
   end
 
-  "Entry name must be unique." if @storage.all_lists.any? { |list| yield list }
+  invalid = yield   # yielding to the block for validation, the block will return a boolean, either true or false. 
+
+  "Entry name must be unique." if invalid
 end
 
 after do # closing databse connection
