@@ -1,7 +1,4 @@
-# Todology
+# CheckIt
 
-Todology is a personal web-based task manager built using Sinatra.
+Checkit is a database-backed task manager built using Ruby, Sinatra, ERB, PostgreSQL, HTML, and CSS.
 
-This is a lightweight todo list app with minimalist design.
-
-Deployed on Heroku: [link](https://todology.herokuapp.com/)
